@@ -3,12 +3,14 @@ local lighting = game:GetService("Lighting")
 local terrain = workspace.Terrain
 local players = game:GetService("Players")
 local localPlayer = players.LocalPlayer
+local camera = workspace.CurrentCamera
 
 settings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
 
 sethiddenproperty(lighting, "Technology", Enum.Technology.Compatibility)
 lighting.GlobalShadows = false
 lighting.FogEnd = 9e9
+lighting.FogStart = 0
 lighting.Brightness = 0
 lighting.EnvironmentSpecularScale = 0
 lighting.EnvironmentDiffuseScale = 0
@@ -25,7 +27,16 @@ terrain.WaterWaveSize = 0
 terrain.WaterWaveSpeed = 0
 terrain.WaterReflectance = 0
 terrain.WaterTransparency = 0
+terrain.Decoration = false
 pcall(function() sethiddenproperty(terrain, "SmoothGrid", false) end)
+
+camera.FieldOfView = 100
+pcall(function()
+    localPlayer.CameraMaxZoomDistance = 9999
+    localPlayer.CameraMinZoomDistance = 0.5
+    localPlayer.CameraMode = Enum.CameraMode.Classic
+end)
+
 local function optimizeObject(obj)
     local objType = obj.ClassName
     
@@ -71,7 +82,7 @@ local function hidePlayer(character)
     task.wait(0.1)
     for _, part in pairs(character:GetDescendants()) do
         if part:IsA("BasePart") or part:IsA("Decal") then
-            part.Transparency = 1
+            part.Transparency = 0.3
         end
     end
 end
@@ -94,6 +105,7 @@ players.PlayerAdded:Connect(function(player)
     if player == localPlayer then return end
     player.CharacterAdded:Connect(hidePlayer)
 end)
+
 local function optimizeLocalCharacter(char)
     for _, v in pairs(char:GetDescendants()) do
         if v:IsA("Accessory") or v:IsA("Hat") or v:IsA("Shirt") or 
@@ -119,4 +131,4 @@ localPlayer.CharacterAdded:Connect(optimizeLocalCharacter)
 
 setfpscap(300)
 
-print("loaded optimizer OKKK")
+print("optimizer work OKKK")
