@@ -4,6 +4,8 @@ local terrain = workspace.Terrain
 local players = game:GetService("Players")
 local localPlayer = players.LocalPlayer
 local camera = workspace.CurrentCamera
+local userInputService = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
 
 settings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
 
@@ -77,6 +79,7 @@ local function optimizeObject(obj)
         return
     end
 end
+
 local function hidePlayer(character)
     task.wait(0.1)
     for _, part in pairs(character:GetDescendants()) do
@@ -127,6 +130,55 @@ if localPlayer.Character then
 end
 
 localPlayer.CharacterAdded:Connect(optimizeLocalCharacter)
+
+local highlight = Instance.new("Highlight")
+highlight.FillColor = Color3.new(1, 0, 0)
+highlight.OutlineColor = Color3.new(1, 1, 1)
+highlight.FillTransparency = 0.5
+highlight.OutlineTransparency = 0
+highlight.Enabled = false
+highlight.Parent = game:GetService("CoreGui")
+
+local currentHighlighted = nil
+local raycastParams = RaycastParams.new()
+raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+raycastParams.FilterDescendantsInstances = {localPlayer.Character}
+
+local function getPointerPosition()
+    if userInputService.TouchEnabled and not userInputService.MouseEnabled then
+        local touches = userInputService:GetTouchPosition()
+        if touches then
+            return touches
+        end
+    end
+    return userInputService:GetMouseLocation()
+end
+
+local function updateHighlight()
+    local pointerPos = getPointerPosition()
+    local unitRay = camera:ViewportPointToRay(pointerPos.X, pointerPos.Y)
+    local ray = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, raycastParams)
+    
+    if ray and ray.Instance then
+        local hitPlayer = players:GetPlayerFromCharacter(ray.Instance:FindFirstAncestorOfClass("Model"))
+        
+        if hitPlayer and hitPlayer ~= localPlayer and hitPlayer.Character then
+            if currentHighlighted ~= hitPlayer.Character then
+                currentHighlighted = hitPlayer.Character
+                highlight.Adornee = currentHighlighted
+                highlight.Enabled = true
+            end
+        else
+            highlight.Enabled = false
+            currentHighlighted = nil
+        end
+    else
+        highlight.Enabled = false
+        currentHighlighted = nil
+    end
+end
+
+runService.RenderStepped:Connect(updateHighlight)
 
 setfpscap(300)
 
