@@ -27,7 +27,6 @@ terrain.WaterWaveSize = 0
 terrain.WaterWaveSpeed = 0
 terrain.WaterReflectance = 0
 terrain.WaterTransparency = 0
-terrain.Decoration = false
 pcall(function() sethiddenproperty(terrain, "SmoothGrid", false) end)
 
 camera.FieldOfView = 100
