@@ -32,6 +32,12 @@ terrain.WaterTransparency = 0
 pcall(function() sethiddenproperty(terrain, "SmoothGrid", false) end)
 
 camera.FieldOfView = 100
+camera:GetPropertyChangedSignal("FieldOfView"):Connect(function()
+    if camera.FieldOfView < 100 then
+        camera.FieldOfView = 100
+    end
+end)
+
 pcall(function()
     localPlayer.CameraMaxZoomDistance = 9999
     localPlayer.CameraMinZoomDistance = 0.5
