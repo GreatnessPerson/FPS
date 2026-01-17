@@ -4,20 +4,22 @@ local terrain = workspace.Terrain
 local players = game:GetService("Players")
 local localPlayer = players.LocalPlayer
 local camera = workspace.CurrentCamera
-local userInputService = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
 
 settings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
 
-sethiddenproperty(lighting, "Technology", Enum.Technology.Compatibility)
+pcall(function()
+    sethiddenproperty(lighting, "Technology", Enum.Technology.Compatibility)
+end)
+
 lighting.GlobalShadows = false
-lighting.FogEnd = 9e9
+lighting.FogEnd = 100000
 lighting.FogStart = 0
-lighting.Brightness = 0
+lighting.Brightness = 1
 lighting.EnvironmentSpecularScale = 0
 lighting.EnvironmentDiffuseScale = 0
 lighting.OutdoorAmbient = Color3.new(0.5, 0.5, 0.5)
-lighting.ClockTime = 12
+lighting.ClockTime = 14
 
 for _, v in pairs(lighting:GetChildren()) do
     if v:IsA("PostEffect") then 
@@ -28,23 +30,26 @@ end
 terrain.WaterWaveSize = 0
 terrain.WaterWaveSpeed = 0
 terrain.WaterReflectance = 0
-terrain.WaterTransparency = 0
-pcall(function() sethiddenproperty(terrain, "SmoothGrid", false) end)
+terrain.WaterTransparency = 0.3
 
-camera.FieldOfView = 100
-camera:GetPropertyChangedSignal("FieldOfView"):Connect(function()
-    if camera.FieldOfView < 100 then
-        camera.FieldOfView = 100
-    end
+pcall(function() 
+    sethiddenproperty(terrain, "Decoration", false)
 end)
 
+camera.FieldOfView = 90
+
 pcall(function()
-    localPlayer.CameraMaxZoomDistance = 9999
+    localPlayer.CameraMaxZoomDistance = 400
     localPlayer.CameraMinZoomDistance = 0.5
     localPlayer.CameraMode = Enum.CameraMode.Classic
 end)
 
+local optimizedCount = 0
+local batchSize = 100
+
 local function optimizeObject(obj)
+    if not obj or not obj.Parent then return end
+    
     local objType = obj.ClassName
     
     if objType == "ParticleEmitter" or objType == "Trail" or objType == "Smoke" or 
@@ -54,13 +59,12 @@ local function optimizeObject(obj)
     end
     
     if objType == "Explosion" then
-        obj:Destroy()
+        pcall(function() obj:Destroy() end)
         return
     end
     
     if obj:IsA("BasePart") then
         obj.CastShadow = false
-        obj.Material = Enum.Material.SmoothPlastic
         obj.Reflectance = 0
         return
     end
@@ -75,60 +79,71 @@ local function optimizeObject(obj)
         return
     end
     
-    if objType == "Humanoid" then
-        obj.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-        return
-    end
-    
     if objType == "Sky" or objType == "Atmosphere" or objType == "Clouds" then
-        obj:Destroy()
+        pcall(function() obj:Destroy() end)
         return
     end
 end
 
-local function hidePlayer(character)
-    task.wait(0.1)
-    for _, part in pairs(character:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("Decal") then
-            part.Transparency = 0.3
+local function optimizeInBatches()
+    local descendants = workspace:GetDescendants()
+    local total = #descendants
+    
+    task.spawn(function()
+        for i = 1, total, batchSize do
+            for j = i, math.min(i + batchSize - 1, total) do
+                pcall(optimizeObject, descendants[j])
+            end
+            optimizedCount = optimizedCount + batchSize
+            
+            if i % 500 == 0 then
+                task.wait()
+            end
         end
-    end
+    end)
 end
 
-for _, obj in pairs(workspace:GetDescendants()) do
-    task.spawn(optimizeObject, obj)
-end
+optimizeInBatches()
 
 workspace.DescendantAdded:Connect(function(obj)
-    task.defer(optimizeObject, obj)
+    task.defer(function()
+        pcall(optimizeObject, obj)
+    end)
 end)
 
-for _, player in pairs(players:GetPlayers()) do
-    if player ~= localPlayer and player.Character then
-        task.spawn(hidePlayer, player.Character)
-    end
+local function optimizePlayer(character)
+    if not character then return end
+    
+    task.spawn(function()
+        task.wait(0.05)
+        for _, v in pairs(character:GetDescendants()) do
+            pcall(function()
+                if v:IsA("Accessory") or v:IsA("Hat") then
+                    for _, part in pairs(v:GetDescendants()) do
+                        if part:IsA("BasePart") or part:IsA("MeshPart") then
+                            part.CastShadow = false
+                        end
+                    end
+                elseif v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") then
+                    v:Destroy()
+                end
+            end)
+        end
+    end)
 end
 
-players.PlayerAdded:Connect(function(player)
-    if player == localPlayer then return end
-    player.CharacterAdded:Connect(hidePlayer)
-end)
-
 local function optimizeLocalCharacter(char)
-    for _, v in pairs(char:GetDescendants()) do
-        if v:IsA("Accessory") or v:IsA("Hat") or v:IsA("Shirt") or 
-           v:IsA("Pants") or v:IsA("ShirtGraphic") then
-            v:Destroy()
-        elseif v:IsA("BodyColors") then
-            local white = Color3.new(1, 1, 1)
-            v.HeadColor3 = white
-            v.TorsoColor3 = white
-            v.LeftArmColor3 = white
-            v.RightArmColor3 = white
-            v.LeftLegColor3 = white
-            v.RightLegColor3 = white
+    task.spawn(function()
+        task.wait(0.05)
+        for _, v in pairs(char:GetDescendants()) do
+            pcall(function()
+                if v:IsA("Accessory") or v:IsA("Hat") or v:IsA("Shirt") or 
+                   v:IsA("Pants") or v:IsA("ShirtGraphic") then
+                    v:Destroy()
+                end
+            end)
         end
-    end
+    end)
 end
 
 if localPlayer.Character then
@@ -137,55 +152,46 @@ end
 
 localPlayer.CharacterAdded:Connect(optimizeLocalCharacter)
 
-local highlight = Instance.new("Highlight")
-highlight.FillColor = Color3.new(1, 0, 0)
-highlight.OutlineColor = Color3.new(1, 1, 1)
-highlight.FillTransparency = 0.5
-highlight.OutlineTransparency = 0
-highlight.Enabled = false
-highlight.Parent = game:GetService("CoreGui")
-
-local currentHighlighted = nil
-local raycastParams = RaycastParams.new()
-raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-raycastParams.FilterDescendantsInstances = {localPlayer.Character}
-
-local function getPointerPosition()
-    if userInputService.TouchEnabled and not userInputService.MouseEnabled then
-        local touches = userInputService:GetTouchPosition()
-        if touches then
-            return touches
-        end
+for _, player in pairs(players:GetPlayers()) do
+    if player ~= localPlayer and player.Character then
+        optimizePlayer(player.Character)
     end
-    return userInputService:GetMouseLocation()
 end
 
-local function updateHighlight()
-    local pointerPos = getPointerPosition()
-    local unitRay = camera:ViewportPointToRay(pointerPos.X, pointerPos.Y)
-    local ray = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, raycastParams)
-    
-    if ray and ray.Instance then
-        local hitPlayer = players:GetPlayerFromCharacter(ray.Instance:FindFirstAncestorOfClass("Model"))
+players.PlayerAdded:Connect(function(player)
+    if player == localPlayer then return end
+    player.CharacterAdded:Connect(optimizePlayer)
+end)
+
+local guiConnection
+task.delay(0.5, function()
+    pcall(function()
+        local playerGui = localPlayer:WaitForChild("PlayerGui")
         
-        if hitPlayer and hitPlayer ~= localPlayer and hitPlayer.Character then
-            if currentHighlighted ~= hitPlayer.Character then
-                currentHighlighted = hitPlayer.Character
-                highlight.Adornee = currentHighlighted
-                highlight.Enabled = true
+        local function optimizeGui(v)
+            if v:IsA("ImageLabel") or v:IsA("ImageButton") then
+                if v.Image and v.Image ~= "" then
+                    task.spawn(function()
+                        task.wait(0.1)
+                        v.ImageTransparency = 1
+                        v.Image = ""
+                    end)
+                end
+            elseif v:IsA("VideoFrame") then
+                v.Video = ""
             end
-        else
-            highlight.Enabled = false
-            currentHighlighted = nil
         end
-    else
-        highlight.Enabled = false
-        currentHighlighted = nil
-    end
-end
-
-runService.RenderStepped:Connect(updateHighlight)
+        
+        for _, gui in pairs(playerGui:GetDescendants()) do
+            optimizeGui(gui)
+        end
+        
+        guiConnection = playerGui.DescendantAdded:Connect(function(v)
+            task.defer(optimizeGui, v)
+        end)
+    end)
+end)
 
 setfpscap(300)
 
-print("optimizer work OKKK")
+print("optimizer works.")
