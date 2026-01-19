@@ -36,7 +36,9 @@ pcall(function()
     sethiddenproperty(terrain, "Decoration", false)
 end)
 
-camera.FieldOfView = 120
+local c=workspace.CurrentCamera
+c.FieldOfView=120
+c:GetPropertyChangedSignal("FieldOfView"):Connect(function() c.FieldOfView=120 end)
 
 pcall(function()
     localPlayer.CameraMaxZoomDistance = 400
